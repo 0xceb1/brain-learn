@@ -1,10 +1,15 @@
 import requests
-from sympy import Integer as Int
-from src.brain import simulate
 from functools import partial
+from typing import Callable
+
+from sympy import Integer as Int
+
+from src.brain import AlphaPerf, simulate
 
 
-def evaluate_fitness(s: requests.Session, logger=None):
+def evaluate_fitness(
+    s: requests.Session, logger=None
+) -> Callable[[str], AlphaPerf | None]:
     return partial(simulate, s, logger=logger)
 
 

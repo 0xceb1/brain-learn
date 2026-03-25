@@ -1,6 +1,6 @@
 from typing import Callable
 from sympy import Integer as Int
-from src.utils import *
+from src.utils import help_check_same
 
 
 class Terminal:

@@ -1,21 +1,48 @@
 from typing import Callable
-from src.function import *  # noqa: F403
+
+from src.brain import AlphaPerf
+from src.function import (
+    Operator,
+    Terminal,
+    ARITIES,
+    OPERATORS,
+    TERMINALS,
+    RANK,
+    ZSCORE,
+    TSZ_21,
+    SURPRISE_21,
+)
 import numpy as np
 from numpy.random import RandomState
 from copy import deepcopy
-from sympy import Integer as Int
+from sympy import Expr, Integer as Int
 
 
 class Program:
+    max_depth: int 
+    max_operators: int
+    metric: Callable[[str], AlphaPerf | None] 
+    p_point_replace: float
+    parimony_coefficient: float
+    random_state: RandomState
+    arities: dict[int, list[Operator]]
+    operator_set: list[Operator]
+    terminal_set: list[Terminal]
+    program: list[Operator | Terminal]
+    raw_fitness: float | None
+    fitness: float | None
+    _unit: list[Expr | None] | None
+    parents: tuple[Program, Program] | None
+
     def __init__(
         self,
         max_depth: int,
         max_operators: int,
         random_state: RandomState,
-        metric: Callable,
+        metric: Callable[[str], AlphaPerf | None],
         parimony_coefficient: float = 0.1,
         p_point_replace: float = 0.12,
-        program: list[Operator | Terminal] = [],
+        program: list[Operator | Terminal] | None = None,
         skip_validation: bool = False,  # for debug usage
     ):
         self.max_depth = max_depth
@@ -24,18 +51,16 @@ class Program:
         self.p_point_replace = p_point_replace
         self.parimony_coefficient = parimony_coefficient
         self.random_state = random_state
-        self.program = program
         self.arities = ARITIES
         self.operator_set = OPERATORS
-        self.terminal_set = TERMINALS  # import from function.py
+        self.terminal_set = TERMINALS
 
-        if self.program is None:
-            # Create a naive random program if none provided
+        if program is None:
             self.program = self.build_program(random_state)
-        elif (
-            self.program and not skip_validation and not self.validate_program()
-        ):  # Only validate non-empty programs
-            raise ValueError('The supplied program is incomplete.')
+        else:
+            self.program = program
+            if self.program and not skip_validation and not self.validate_program():
+                raise ValueError('The supplied program is incomplete.')
 
         self.raw_fitness = None
         self.fitness = None
@@ -43,7 +68,7 @@ class Program:
         self.parents = None
 
     @property
-    def unit(self):
+    def unit(self) -> list[Expr | None]:
         """Compute and return the units for each node in the program.
 
         Returns
@@ -65,9 +90,7 @@ class Program:
                 elif isinstance(node, Operator):
                     # For operators, pop required number of operands
                     if len(stack) < node.arity:
-                        raise ValueError(
-                            f'Not enough operands for operator {node.name}'
-                        )
+                        raise ValueError(f'Not enough operands for operator {node.name}')
 
                     # Get operand units from the stack (in reverse order for proper handling)
                     operand_units = []
@@ -125,7 +148,7 @@ class Program:
             # Only apply normalization if the unit is not already 1
             if final_unit != Int(1):
                 # Choose a normalizer from the available options that guarantee unit Int(1)
-                normalizer_options = [RANK, ZSCORE, TSZ_21, SURPRISE]
+                normalizer_options = [RANK, ZSCORE, TSZ_21, SURPRISE_21]
                 # Weight the choices based on their expected effectiveness
                 weights = [0.2, 0.3, 0.25, 0.25]  # Higher weights for RANK and ZSCORE
 
@@ -154,7 +177,7 @@ class Program:
 
         return program
 
-    def build_program(self, random_state):
+    def build_program(self, random_state) -> list[Operator | Terminal]:
         """Build a random program tree in postfix notation.
 
         Parameters
@@ -177,9 +200,7 @@ class Program:
                 return None
 
             if weights is None:
-                weights = np.array(
-                    [getattr(option, 'weight', 1.0) for option in options]
-                )
+                weights = np.array([getattr(option, 'weight', 1.0) for option in options])
 
             if weights.sum() == 0:
                 weights = np.ones_like(weights)
@@ -237,9 +258,7 @@ class Program:
 
                 # Add the operator after its operands (postfix notation)
                 program.append(operator)
-                return program, len(
-                    [node for node in program if isinstance(node, Operator)]
-                )
+                return program, len([node for node in program if isinstance(node, Operator)])
 
         # Try to generate valid programs
         for _ in range(max_attempts):
@@ -390,9 +409,7 @@ class Program:
 
         # We should have exactly one item on the stack - the final result
         if len(stack) != 1:
-            raise ValueError(
-                f'Invalid program structure: expected 1 result but got {len(stack)}'
-            )
+            raise ValueError(f'Invalid program structure: expected 1 result but got {len(stack)}')
 
         return stack[0]
 
@@ -417,7 +434,7 @@ class Program:
     def length(self):
         return len(self.program)
 
-    def raw_fitness(self):
+    def compute_raw_fitness(self):
         # First check if the final unit is Int(1)
         units = self.unit
         final_unit = units[-1] if units else None
@@ -442,16 +459,19 @@ class Program:
 
         # Evaluate the expression
         try:
-            fitness = self.metric(fast_expr)['fitness']
+            result = self.metric(fast_expr)
+            if result is None:
+                return float('-inf')
+            fitness = result['fitness']
             if fitness is None:
                 return float('-inf')
             return fitness
         except Exception:
             return float('-inf')
 
-    def fitness(self):
+    def compute_fitness(self):
         penalty = self.parimony_coefficient * len(self.program)
-        return self.raw_fitness - penalty
+        return self.compute_raw_fitness() - penalty
 
     def get_subtree(self, random_state, program=None):
         """Get a random subtree from the program.
@@ -482,9 +502,7 @@ class Program:
 
         # Choice of crossover points follows Koza's (1992) widely used approach
         # of choosing functions 90% of the time and leaves 10% of the time.
-        probs = np.array(
-            [0.9 if isinstance(node, Operator) else 0.1 for node in program]
-        )
+        probs = np.array([0.9 if isinstance(node, Operator) else 0.1 for node in program])
 
         # Ensure probabilities sum to 1
         if probs.sum() > 0:
@@ -556,14 +574,10 @@ class Program:
 
             # Get a subtree to donate
             donor_start, donor_end = self.get_subtree(random_state, donor)
-            donor_removed = list(
-                set(range(len(donor))) - set(range(donor_start, donor_end))
-            )
+            donor_removed = list(set(range(len(donor))) - set(range(donor_start, donor_end)))
 
             # Create the new program by inserting genetic material from donor
-            new_program = (
-                self.program[:start] + donor[donor_start:donor_end] + self.program[end:]
-            )
+            new_program = self.program[:start] + donor[donor_start:donor_end] + self.program[end:]
 
             # Check if the new program is valid (including unit compatibility)
             temp_program = Program(
@@ -651,9 +665,7 @@ class Program:
             new_program = self.program[:start] + hoist + self.program[end:]
 
             # Determine which nodes were removed for plotting
-            removed = list(
-                set(range(start, end)) - set(range(start + sub_start, start + sub_end))
-            )
+            removed = list(set(range(start, end)) - set(range(start + sub_start, start + sub_end)))
 
             # Check if the new program is valid (including unit compatibility)
             temp_program = Program(
@@ -703,9 +715,7 @@ class Program:
             program = deepcopy(self.program)
 
             # Get the nodes to modify
-            mutate = np.where(
-                random_state.uniform(size=len(program)) < self.p_point_replace
-            )[0]
+            mutate = np.where(random_state.uniform(size=len(program)) < self.p_point_replace)[0]
 
             for node in mutate:
                 if isinstance(program[node], Operator):
@@ -741,9 +751,12 @@ class Program:
         return deepcopy(self.program), []
 
     @staticmethod
-    def create_from_list(program: list[Operator | Terminal], metric=None):
+    def create_from_list(
+        program: list[Operator | Terminal],
+        metric: Callable[[str], AlphaPerf | None] | None = None,
+    ):
         if metric is None:
-            metric = lambda _: 0  # noqa: E731
+            metric = lambda _: {'fitness': 0.0}  # noqa: E731
         return Program(
             max_depth=len(program),
             max_operators=len(program),

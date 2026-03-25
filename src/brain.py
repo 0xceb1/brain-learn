@@ -4,59 +4,48 @@ import pandas as pd
 from datetime import datetime
 import os
 import threading
-from functools import wraps
+from typing import TypedDict, cast
 
-# Global lock for thread-safe CSV operations
+
+class AlphaPerf(TypedDict, total=False):
+    alpha_id: str
+    regular_code: str | None
+    turnover: float | None
+    returns: float | None
+    drawdown: float | None
+    margin: float | None
+    fitness: float | None
+    sharpe: float | None
+    LOW_SHARPE: str
+    LOW_FITNESS: str
+    LOW_TURNOVER: str
+    HIGH_TURNOVER: str
+    CONCENTRATED_WEIGHT: str
+    LOW_SUB_UNIVERSE_SHARPE: str
+    SELF_CORRELATION: str
+    MATCHES_COMPETITION: str
+    expression: str
+    final_fitness: float
+    error: str
+
 _csv_lock = threading.Lock()
 
 
-def thread_safe_csv(func):
-    """Decorator to make any CSV operation thread-safe."""
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        with _csv_lock:
-            return func(*args, **kwargs)
-
-    return wrapper
-
-
-@thread_safe_csv
-def save_alpha_to_csv(alpha_performance, logger=None):
-    """
-    Save alpha performance data to CSV in a thread-safe manner using pandas.
-    Always saves to 'simulation_results.csv' in the root directory.
-
-    Parameters
-    ----------
-    alpha_performance : dict
-        Dictionary containing alpha performance metrics
-    logger : Logger, optional
-        Logger instance for logging messages
-    """
+def save_alpha(alpha_performance, logger=None):
     if not alpha_performance:
         return
 
     csv_path = 'simulation_results.csv'
-
-    # Add timestamp to the performance data
-    alpha_performance = (
-        alpha_performance.copy()
-    )  # Create a copy to avoid modifying the original
+    alpha_performance = alpha_performance.copy()
     alpha_performance['date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     try:
-        # Convert single record to DataFrame
         df_new = pd.DataFrame([alpha_performance])
-
-        # Check if file exists and append or create new
-        if os.path.exists(csv_path):
-            # Append to existing file without writing headers
-            df_new.to_csv(csv_path, mode='a', header=False, index=False)
-        else:
-            # Create new file with headers
-            df_new.to_csv(csv_path, index=False)
-
+        with _csv_lock:
+            if os.path.exists(csv_path):
+                df_new.to_csv(csv_path, mode='a', header=False, index=False)
+            else:
+                df_new.to_csv(csv_path, index=False)
     except Exception as e:
         error_msg = f'Failed to write to CSV file: {e}'
         if logger:
@@ -65,32 +54,7 @@ def save_alpha_to_csv(alpha_performance, logger=None):
             print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {error_msg}')
 
 
-@thread_safe_csv
 def read_simulations_csv(csv_path='simulations.csv'):
-    """
-    Read simulation data from CSV in a thread-safe manner. Ensures a standard
-    set of columns is present in the output DataFrame.
-
-    Parameters
-    ----------
-    csv_path : str, optional
-        Path to the CSV file (default is "simulations.csv")
-    filter_criteria : dict, optional
-        Dictionary of {column: value} pairs to filter the data.
-        For numeric columns, filters rows where column >= value.
-        For non-numeric columns, filters rows where column == value.
-        Example: {'sharpe': 1.5} will return only rows where sharpe >= 1.5
-    sort_by : tuple or str, optional
-        Column name(s) to sort by. Can be a string (column name, descending order)
-        or a tuple (column_name, ascending_bool).
-        Example: 'fitness' or ('fitness', False) for descending order.
-
-    Returns
-    -------
-    pandas.DataFrame
-        DataFrame containing simulation results, potentially reindexed and filtered/sorted.
-        Returns an empty DataFrame with standard columns if the file doesn't exist or an error occurs.
-    """
     EXPECTED_COLUMNS = [
         'alpha_id',
         'regular_code',
@@ -134,14 +98,13 @@ def read_simulations_csv(csv_path='simulations.csv'):
         return empty_df
 
 
-def get_alpha_performance(s: requests.Session, alpha_id: str):
+def get_alpha_performance(s: requests.Session, alpha_id: str) -> AlphaPerf:
     alpha = s.get('https://api.worldquantbrain.com/alphas/' + alpha_id)
     regular = alpha.json().get('regular', {})
     investment_summary = alpha.json().get('is', {})
     checks = alpha.json().get('is', {}).get('checks', [])
     check_results = {check['name']: check['result'] for check in checks}
 
-    # 创建一个包含所需信息的字典
     alpha_performance = {
         'alpha_id': alpha_id,
         'regular_code': regular.get('code'),
@@ -162,12 +125,12 @@ def get_alpha_performance(s: requests.Session, alpha_id: str):
         'SELF_CORRELATION': check_results.get('SELF_CORRELATION', 'Not Found'),
         'MATCHES_COMPETITION': check_results.get('MATCHES_COMPETITION', 'Not Found'),
     }
-    return alpha_performance
+    return cast(AlphaPerf, alpha_performance)
 
 
 def simulate(
     s: requests.Session, fast_expr: str, timeout=300, logger=None
-) -> dict | None:
+) -> AlphaPerf | None:
     simulation_data = {
         'type': 'REGULAR',
         'settings': {
@@ -294,7 +257,7 @@ def simulate(
             alpha_performance = get_alpha_performance(s, alpha_id)
             if alpha_performance:
                 # Save the performance data to CSV
-                save_alpha_to_csv(alpha_performance, logger=logger)
+                save_alpha(alpha_performance, logger=logger)
                 # Add the expression to the returned alpha_performance object for reference
                 alpha_performance['expression'] = fast_expr
                 return alpha_performance
