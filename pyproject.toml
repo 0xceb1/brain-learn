@@ -1,14 +1,20 @@
 [project]
 name = "brain-learn"
 version = "0.1.0"
-description = "Add your description here"
+description = "GP learn framework for automatic alpha mining on WorldQuant BRAIN platform"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "dill>=0.4.0",
-    "ipykernel>=6.29.5",
     "pandas>=2.2.3",
     "python-dotenv>=1.1.0",
     "requests>=2.32.3",
     "sympy>=1.13.3",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.5",
+    "ty>=0.0.21",
+    "ipykernel>=6.29.5",
 ]
