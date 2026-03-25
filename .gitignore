@@ -1,11 +1,8 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
-build/
-dist/
-wheels/
 *.egg-info
-.ruff_cache/
+*cache
 logs/
 
 # Virtual environments
@@ -21,8 +18,3 @@ logs/
 *.pkl.gz
 *.csv
 *.json
-
-# Cursor
-.cursorignore
-.cursorrules
-.cursor/
