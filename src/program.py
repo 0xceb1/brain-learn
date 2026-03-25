@@ -19,9 +19,9 @@ from sympy import Expr, Integer as Int
 
 
 class Program:
-    max_depth: int 
+    max_depth: int
     max_operators: int
-    metric: Callable[[str], AlphaPerf | None] 
+    metric: Callable[[str], AlphaPerf | None]
     p_point_replace: float
     parimony_coefficient: float
     random_state: RandomState
@@ -90,7 +90,9 @@ class Program:
                 elif isinstance(node, Operator):
                     # For operators, pop required number of operands
                     if len(stack) < node.arity:
-                        raise ValueError(f'Not enough operands for operator {node.name}')
+                        raise ValueError(
+                            f'Not enough operands for operator {node.name}'
+                        )
 
                     # Get operand units from the stack (in reverse order for proper handling)
                     operand_units = []
@@ -200,7 +202,9 @@ class Program:
                 return None
 
             if weights is None:
-                weights = np.array([getattr(option, 'weight', 1.0) for option in options])
+                weights = np.array(
+                    [getattr(option, 'weight', 1.0) for option in options]
+                )
 
             if weights.sum() == 0:
                 weights = np.ones_like(weights)
@@ -258,7 +262,9 @@ class Program:
 
                 # Add the operator after its operands (postfix notation)
                 program.append(operator)
-                return program, len([node for node in program if isinstance(node, Operator)])
+                return program, len(
+                    [node for node in program if isinstance(node, Operator)]
+                )
 
         # Try to generate valid programs
         for _ in range(max_attempts):
@@ -409,7 +415,9 @@ class Program:
 
         # We should have exactly one item on the stack - the final result
         if len(stack) != 1:
-            raise ValueError(f'Invalid program structure: expected 1 result but got {len(stack)}')
+            raise ValueError(
+                f'Invalid program structure: expected 1 result but got {len(stack)}'
+            )
 
         return stack[0]
 
@@ -502,7 +510,9 @@ class Program:
 
         # Choice of crossover points follows Koza's (1992) widely used approach
         # of choosing functions 90% of the time and leaves 10% of the time.
-        probs = np.array([0.9 if isinstance(node, Operator) else 0.1 for node in program])
+        probs = np.array(
+            [0.9 if isinstance(node, Operator) else 0.1 for node in program]
+        )
 
         # Ensure probabilities sum to 1
         if probs.sum() > 0:
@@ -574,10 +584,14 @@ class Program:
 
             # Get a subtree to donate
             donor_start, donor_end = self.get_subtree(random_state, donor)
-            donor_removed = list(set(range(len(donor))) - set(range(donor_start, donor_end)))
+            donor_removed = list(
+                set(range(len(donor))) - set(range(donor_start, donor_end))
+            )
 
             # Create the new program by inserting genetic material from donor
-            new_program = self.program[:start] + donor[donor_start:donor_end] + self.program[end:]
+            new_program = (
+                self.program[:start] + donor[donor_start:donor_end] + self.program[end:]
+            )
 
             # Check if the new program is valid (including unit compatibility)
             temp_program = Program(
@@ -665,7 +679,9 @@ class Program:
             new_program = self.program[:start] + hoist + self.program[end:]
 
             # Determine which nodes were removed for plotting
-            removed = list(set(range(start, end)) - set(range(start + sub_start, start + sub_end)))
+            removed = list(
+                set(range(start, end)) - set(range(start + sub_start, start + sub_end))
+            )
 
             # Check if the new program is valid (including unit compatibility)
             temp_program = Program(
@@ -715,7 +731,9 @@ class Program:
             program = deepcopy(self.program)
 
             # Get the nodes to modify
-            mutate = np.where(random_state.uniform(size=len(program)) < self.p_point_replace)[0]
+            mutate = np.where(
+                random_state.uniform(size=len(program)) < self.p_point_replace
+            )[0]
 
             for node in mutate:
                 if isinstance(program[node], Operator):

@@ -28,6 +28,7 @@ class AlphaPerf(TypedDict, total=False):
     final_fitness: float
     error: str
 
+
 _csv_lock = threading.Lock()
 
 

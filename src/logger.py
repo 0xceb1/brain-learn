@@ -64,7 +64,7 @@ class Logger:
                                 try:
                                     run_num = int(log_file.stem.split('_')[-1])
                                     run_numbers.append(run_num)
-                                except (ValueError, IndexError):
+                                except ValueError, IndexError:
                                     continue
                             if run_numbers:
                                 run_number = max(run_numbers) + 1
