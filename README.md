@@ -2,36 +2,11 @@
 
 A genetic programming framework for the [WorldQuant BRAIN platform](https://platform.worldquantbrain.com/), inspired by [gplearn](https://github.com/trevorstephens/gplearn).
 
-## Setup
+## Usage
 
-1.  **Environment:** Configure your Python environment using [`uv`](https://docs.astral.sh/uv/):
-    ```bash
-    uv sync
-    ```
-    This command creates a python virtual environment in `.venv` and installs the dependencies listed in `pyproject.toml`.
-
-2.  **Configuration:**
-    *   Create a `.env` file in the project root directory. The file should contain necessary credentials, particularly `USERNAME` and `PASSWORD`.
-    *   Modify `main.py` to set your desired parameters for the genetic programming run (e.g., population size, generations, simulation settings).
-
-3.  **Initial Population (Optional):** You can provide an initial population of expressions (signals) to kickstart the evolution process. Refer to the implementation in `main.py` or `src/genetic.py` for how to load or specify this initial population.
-
-## Running the Framework
-
-Execute the main script using `uv`:
-
-```bash
-uv run main.py
-```
-
-or activate the environment first then run with the corresponding intepreter
-
-```bash
-source .venv/bin/activate
-python3 main.py
-```
-
-This will start the genetic programming process based on the configurations in `main.py`.
+1. Rename `.env.example` to `.env` and modify the `USERNAME` and `PASSWORD` to your own.
+2. Modify `main.py` to set your desired parameters for the genetic programming run (e.g., population size, generations, simulation settings).
+3. (Optional) You can provide an initial population of expressions (signals) to kickstart the evolution process. Refer to the implementation in `main.py` or `src/genetic.py` for how to load or specify this initial population.
 
 ## Customization
 
@@ -42,7 +17,7 @@ You can customize the building blocks of the genetic programming process:
 
 ## Disclaimer
 
-Notice: This codebase is experimental and intended solely for personal use. It is provided 'AS IS', without representation or warranty of any kind. Liability for any use or reliance upon this software is expressly disclaimed.
+Notice: This codebase is experimental and intended solely for personal use. It is provided 'AS IS', without representation or warranty of any kind. Liability for any use or reliance upon this software is expressly disclaimed. USE AT YOUR OWN RISK.
 
 
 
