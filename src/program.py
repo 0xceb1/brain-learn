@@ -57,6 +57,7 @@ class Program:
         self.terminal_set = TERMINALS
 
         if program is None:
+            self.program = []
             self.program = self.build_program(random_state)
         else:
             self.program = program
