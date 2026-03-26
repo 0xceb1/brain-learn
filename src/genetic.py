@@ -240,10 +240,7 @@ class GPLearnSimulator:
                 self.population.append(program)
                 self.evaluated_expressions.add(program_str)
 
-        if self.logger:
-            self.logger.log(
-                f'Initialized population with {len(self.population)} programs'
-            )
+        self.logger.log(f'Initialized population with {len(self.population)} programs')
 
     def _recreate_session(self) -> bool:
         """Recreate the session if authentication fails."""
@@ -254,23 +251,14 @@ class GPLearnSimulator:
         response = self.session.post('https://api.worldquantbrain.com/authentication')
 
         if response.status_code == 201:
-            if self.logger:
-                self.logger.log('Session reconnected successfully.')
-            else:
-                print('Session reconnected successfully.')
+            self.logger.log('Session reconnected successfully.')
             self.metric = evaluate_fitness(self.session, logger=self.logger)
             return True
         else:
-            if self.logger:
-                self.logger.error(
-                    f'Failed to reconnect session. Status Code: {response.status_code}'
-                )
-                self.logger.error(f'Response: {response.text}')
-            else:
-                print(
-                    f'Failed to reconnect session. Status Code: {response.status_code}'
-                )
-                print(f'Response: {response.text}')
+            self.logger.error(
+                f'Failed to reconnect session. Status Code: {response.status_code}'
+            )
+            self.logger.error(f'Response: {response.text}')
             return False
 
     def _meets_hof_threshold(self, result) -> bool:
@@ -314,14 +302,12 @@ class GPLearnSimulator:
 
                 # Check if session is valid
                 if current_session is None:
-                    if self.logger:
-                        self.logger.warning('Session is None, attempting to recreate.')
+                    self.logger.warning('Session is None, attempting to recreate.')
                     with self._session_lock:
                         if not self._recreate_session():
-                            if self.logger:
-                                self.logger.error(
-                                    'Failed to recreate session, cannot evaluate.'
-                                )
+                            self.logger.error(
+                                'Failed to recreate session, cannot evaluate.'
+                            )
                             break
                         metric_func = evaluate_fitness(self.session, logger=self.logger)
 
@@ -338,35 +324,31 @@ class GPLearnSimulator:
                                 timeout=10,
                             )
                             if test_response.status_code != 200:
-                                if self.logger:
-                                    self.logger.warning(
-                                        f'Session check failed ({test_response.status_code}), recreating.'
-                                    )
+                                self.logger.warning(
+                                    f'Session check failed ({test_response.status_code}), recreating.'
+                                )
                                 if self._recreate_session():
                                     self.metric = evaluate_fitness(
                                         self.session, logger=self.logger
                                     )
                                     continue
                             else:
-                                if self.logger:
-                                    self.logger.log(
-                                        'Session check OK, but metric returned None. Retrying.'
-                                    )
-                        except requests.exceptions.RequestException as e:
-                            if self.logger:
-                                self.logger.warning(
-                                    f'Session check error: {e}. Attempting recreation.'
+                                self.logger.log(
+                                    'Session check OK, but metric returned None. Retrying.'
                                 )
+                        except requests.exceptions.RequestException as e:
+                            self.logger.warning(
+                                f'Session check error: {e}. Attempting recreation.'
+                            )
                             if self._recreate_session():
                                 self.metric = evaluate_fitness(
                                     self.session, logger=self.logger
                                 )
                                 continue
                     # If we reach here, either the session is valid but metric failed, or recreation failed
-                    if self.logger:
-                        self.logger.error(
-                            f'Metric returned None. Skipping program: {program_str[:50]}...'
-                        )
+                    self.logger.error(
+                        f'Metric returned None. Skipping program: {program_str[:50]}...'
+                    )
                     break
 
                 # Successful evaluation
@@ -374,20 +356,18 @@ class GPLearnSimulator:
                     break
 
             except requests.exceptions.Timeout:
-                if self.logger:
-                    self.logger.warning(
-                        f'Timeout: {program_str[:50]}... Attempt {attempt + 1}/{MAX_RECONNECTION_ATTEMPTS}'
-                    )
+                self.logger.warning(
+                    f'Timeout: {program_str[:50]}... Attempt {attempt + 1}/{MAX_RECONNECTION_ATTEMPTS}'
+                )
                 if attempt < MAX_RECONNECTION_ATTEMPTS - 1:
                     time.sleep(2**attempt)  # Exponential backoff
                 else:
                     result = cast(AlphaPerf, {'error': 'timeout'})
 
             except requests.exceptions.RequestException as e:
-                if self.logger:
-                    self.logger.error(
-                        f'Request error: {program_str[:50]}... {e}. Attempt {attempt + 1}/{MAX_RECONNECTION_ATTEMPTS}'
-                    )
+                self.logger.error(
+                    f'Request error: {program_str[:50]}... {e}. Attempt {attempt + 1}/{MAX_RECONNECTION_ATTEMPTS}'
+                )
                 if attempt < MAX_RECONNECTION_ATTEMPTS - 1:
                     time.sleep(2**attempt)
                 else:
@@ -406,10 +386,9 @@ class GPLearnSimulator:
             program.fitness = program.raw_fitness - penalty
             result['final_fitness'] = program.fitness
 
-            if self.logger:
-                self.logger.log(
-                    f'Program fitness: {program_str[:50]}... = {program.fitness:.4f}'
-                )
+            self.logger.log(
+                f'Program fitness: {program_str[:50]}... = {program.fitness:.4f}'
+            )
 
             # Update Hall of Fame if result meets threshold
             if self._meets_hof_threshold(result):
@@ -431,8 +410,7 @@ class GPLearnSimulator:
             # Handle evaluation failure
             program.raw_fitness = float('-inf')
             program.fitness = float('-inf')
-            if self.logger:
-                self.logger.warning(f'Evaluation failed for: {program_str[:50]}...')
+            self.logger.warning(f'Evaluation failed for: {program_str[:50]}...')
 
         return program_str, result
 
@@ -453,8 +431,7 @@ class GPLearnSimulator:
                 pickle.dump(existing_programs, f)
 
         except Exception as e:
-            if self.logger:
-                self.logger.error(f'Error saving to initial population file: {e}')
+            self.logger.error(f'Error saving to initial population file: {e}')
 
     def _evaluate_fitness(self, program) -> tuple[float, float]:
         """Deprecated: Use parallel_evaluate_fitness."""
@@ -487,10 +464,9 @@ class GPLearnSimulator:
         if not to_evaluate:
             return
 
-        if self.logger:
-            self.logger.log(
-                f'Evaluating {len(to_evaluate)} programs (pool size {n_parallel})...'
-            )
+        self.logger.log(
+            f'Evaluating {len(to_evaluate)} programs (pool size {n_parallel})...'
+        )
 
         start_time = time.time()
 
@@ -509,10 +485,9 @@ class GPLearnSimulator:
                     )  # We don't need to store results here as programs are updated in-place
                 except Exception as exc:
                     program_str = str(program)
-                    if self.logger:
-                        self.logger.error(
-                            f'Program {program_str[:50]}... generated an exception: {exc}'
-                        )
+                    self.logger.error(
+                        f'Program {program_str[:50]}... generated an exception: {exc}'
+                    )
                     program.raw_fitness = float('-inf')
                     program.fitness = float('-inf')
                     self.evaluated_expressions.add(program_str)
@@ -524,13 +499,12 @@ class GPLearnSimulator:
                 program.fitness = float('-inf')
 
         duration = time.time() - start_time
-        if self.logger:
-            self.logger.log(f'Batch evaluation completed in {duration:.2f}s')
-            if self.hall_of_fame and len(self.hall_of_fame) > 0:
-                best_hof = max(f[0] for f in self.hall_of_fame)
-                self.logger.log(
-                    f'HOF: {len(self.hall_of_fame)} entries, best={best_hof:.4f}'
-                )
+        self.logger.log(f'Batch evaluation completed in {duration:.2f}s')
+        if self.hall_of_fame and len(self.hall_of_fame) > 0:
+            best_hof = max(f[0] for f in self.hall_of_fame)
+            self.logger.log(
+                f'HOF: {len(self.hall_of_fame)} entries, best={best_hof:.4f}'
+            )
 
     def _tournament_selection(self) -> Program:
         """Select a program using tournament selection."""
@@ -575,8 +549,7 @@ class GPLearnSimulator:
         if not self.population:
             self._initialize_population()
 
-        if self.logger:
-            self.logger.log(f'Initial evaluation of {len(self.population)} programs...')
+        self.logger.log(f'Initial evaluation of {len(self.population)} programs...')
 
         needs_evaluation = [p for p in self.population if p.fitness is None]
         self.parallel_evaluate_fitness(needs_evaluation)
@@ -599,7 +572,7 @@ class GPLearnSimulator:
                 best_str = str(self.best_program)
                 next_population.append(self.best_program)
                 next_gen_strings.add(best_str)
-                if self.logger and gen % log_interval == 0:
+                if gen % log_interval == 0:
                     self.logger.log(
                         f'Elite: {best_str[:50]}... (Fitness: {self.best_fitness:.4f})'
                     )
@@ -688,8 +661,7 @@ class GPLearnSimulator:
                     break
 
             # Evaluate the new generation
-            if self.logger:
-                self.logger.log(f'\n--- Generation {gen} ---')
+            self.logger.log(f'\n--- Generation {gen} ---')
             self.parallel_evaluate_fitness(next_population)
 
             # Update population and best program
