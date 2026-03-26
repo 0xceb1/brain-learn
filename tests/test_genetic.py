@@ -1,6 +1,10 @@
 import unittest
+
 import numpy as np
+import requests
+
 from src.genetic import GPLearnSimulator
+from src.logger import Logger
 from src.program import Program
 from src.function import ADD, MUL, DIV, OPEN, CLOSE, VOLUME
 
@@ -94,10 +98,22 @@ def deterministic_metric(expr):
 
 
 class TestGPLearnSimulator(unittest.TestCase):
+    def setUp(self):
+        self.session = requests.Session()
+        self.logger = Logger(job_name='test-gp', console_log=False, file_log=False)
+        self.username = 'test_user'
+        self.password = 'test_pass'
+
     def test_initialization(self):
         """Test the initialization of the GPLearnSimulator."""
         # Initialize with default parameters
-        gp = GPLearnSimulator(random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            random_state=42,
+        )
 
         # Check that parameters were set correctly
         self.assertEqual(gp.population_size, 30)
@@ -107,6 +123,10 @@ class TestGPLearnSimulator(unittest.TestCase):
 
         # Initialize with custom parameters
         custom_gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=50, generations=10, tournament_size=3, random_state=42
         )
 
@@ -118,7 +138,14 @@ class TestGPLearnSimulator(unittest.TestCase):
     def test_population_initialization(self):
         """Test the initialization of the population."""
         # Use a fixed random seed for reproducibility
-        gp = GPLearnSimulator(population_size=10, random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            population_size=10,
+            random_state=42,
+        )
 
         # Initialize the population
         gp._initialize_population()
@@ -133,7 +160,13 @@ class TestGPLearnSimulator(unittest.TestCase):
     def test_fitness_evaluation(self):
         """Test the fitness evaluation of a program."""
         # Create a simulator with the dummy metric function
-        gp = GPLearnSimulator(random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            random_state=42,
+        )
         gp.metric = dummy_metric
 
         # Create a simple program for testing
@@ -161,7 +194,15 @@ class TestGPLearnSimulator(unittest.TestCase):
     def test_tournament_selection(self):
         """Test the tournament selection method."""
         # Create a simulator
-        gp = GPLearnSimulator(population_size=10, tournament_size=3, random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            population_size=10,
+            tournament_size=3,
+            random_state=42,
+        )
         gp.metric = dummy_metric
 
         # Create a population with known fitness values
@@ -192,6 +233,10 @@ class TestGPLearnSimulator(unittest.TestCase):
         """Test the evolution process for a few generations."""
         # Create a simulator with a small population and few generations
         gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10, generations=3, tournament_size=3, random_state=42
         )
         gp.metric = dummy_metric
@@ -219,7 +264,15 @@ class TestGPLearnSimulator(unittest.TestCase):
     def test_get_best_individual(self):
         """Test getting the best individual."""
         # Create and evolve a simulator
-        gp = GPLearnSimulator(population_size=10, generations=2, random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            population_size=10,
+            generations=2,
+            random_state=42,
+        )
         gp.metric = dummy_metric
         gp.evolve(verbose=False)
 
@@ -236,6 +289,10 @@ class TestGPLearnSimulator(unittest.TestCase):
         """Test evolution with a deterministic fitness function."""
         # Create a simulator with deterministic metric
         gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=15, generations=5, tournament_size=3, random_state=42
         )
         gp.metric = deterministic_metric
@@ -249,6 +306,10 @@ class TestGPLearnSimulator(unittest.TestCase):
 
         # Reset and run again with same parameters
         gp2 = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=15, generations=5, tournament_size=3, random_state=42
         )
         gp2.metric = deterministic_metric
@@ -265,6 +326,10 @@ class TestGPLearnSimulator(unittest.TestCase):
         """Test different crossover probabilities."""
         # Run with high crossover probability
         gp_high_crossover = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10,
             generations=3,
             p_crossover=0.9,
@@ -276,6 +341,10 @@ class TestGPLearnSimulator(unittest.TestCase):
 
         # Run with low crossover probability
         gp_low_crossover = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10,
             generations=3,
             p_crossover=0.1,
@@ -293,6 +362,10 @@ class TestGPLearnSimulator(unittest.TestCase):
         """Test different parsimony pressure coefficients."""
         # Run with low parsimony pressure
         gp_low_parsimony = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10,
             generations=3,
             parsimony_coefficient=0.01,
@@ -303,6 +376,10 @@ class TestGPLearnSimulator(unittest.TestCase):
 
         # Run with high parsimony pressure
         gp_high_parsimony = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10,
             generations=3,
             parsimony_coefficient=0.5,
@@ -324,7 +401,15 @@ class TestGPLearnSimulator(unittest.TestCase):
     def test_empty_population_handling(self):
         """Test that the evolution process handles empty initial population."""
         # Create a simulator but don't initialize population
-        gp = GPLearnSimulator(population_size=5, generations=2, random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            population_size=5,
+            generations=2,
+            random_state=42,
+        )
         gp.metric = deterministic_metric
 
         # Explicitly empty the population
@@ -341,7 +426,13 @@ class TestGPLearnSimulator(unittest.TestCase):
 
     def test_edge_case_fitness(self):
         """Test handling of edge cases in fitness evaluation."""
-        gp = GPLearnSimulator(random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            random_state=42,
+        )
 
         # Create a custom metric that sometimes returns None or raises exceptions
         def problematic_metric(expr):
@@ -407,6 +498,10 @@ class TestGPLearnSimulator(unittest.TestCase):
 
         # Test with sequential evaluation (n_parallel=1)
         gp_sequential = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10, n_parallel=1, random_state=42
         )
         gp_sequential.metric = delayed_metric
@@ -422,6 +517,10 @@ class TestGPLearnSimulator(unittest.TestCase):
 
         # Test with parallel evaluation (n_parallel=3)
         gp_parallel = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10, n_parallel=3, random_state=42
         )
         gp_parallel.metric = delayed_metric
@@ -445,6 +544,10 @@ class TestGPLearnSimulator(unittest.TestCase):
             program.raw_fitness = None
 
         gp_too_many = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
             population_size=10,
             n_parallel=10,  # More than allowed
             random_state=42,
@@ -479,7 +582,15 @@ class TestGPLearnSimulator(unittest.TestCase):
             return {'sharpe': 1.0}
 
         # Test batch processing with larger number of programs
-        gp = GPLearnSimulator(population_size=40, n_parallel=3, random_state=42)
+        gp = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            population_size=40,
+            n_parallel=3,
+            random_state=42,
+        )
 
         gp.metric = variable_delay_metric
 
@@ -505,7 +616,15 @@ class TestGPLearnSimulator(unittest.TestCase):
             self.assertIsNotNone(program.fitness)
 
         # Test timeout handling
-        gp_timeout = GPLearnSimulator(population_size=5, n_parallel=2, random_state=42)
+        gp_timeout = GPLearnSimulator(
+            self.session,
+            self.logger,
+            self.username,
+            self.password,
+            population_size=5,
+            n_parallel=2,
+            random_state=42,
+        )
         gp_timeout.metric = timeout_metric
 
         # Create a few programs that will time out

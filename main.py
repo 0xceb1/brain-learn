@@ -8,19 +8,8 @@ import dill
 from src.logger import Logger
 
 
-def create_session(logger):
+def create_session(logger, username: str, password: str):
     """Create and authenticate a new session."""
-    # Load credentials from .env file
-    load_dotenv()
-    username = os.getenv('USERNAME')
-    password = os.getenv('PASSWORD')
-
-    if not username or not password:
-        logger.error('USERNAME or PASSWORD environment variables not set.')
-        logger.error('Please check your .env file.')
-        sys.exit(1)
-
-    # Create a new session
     s = requests.Session()
     s.auth = (username, password)
 
@@ -38,7 +27,6 @@ def create_session(logger):
 
 
 def main():
-    # Initialize logger
     logger = Logger(
         job_name='brain-learn',
         console_log=True,
@@ -47,8 +35,16 @@ def main():
         incremental_run_number=True,
     )
 
+    load_dotenv()
+    username = os.getenv('USERNAME')
+    password = os.getenv('PASSWORD')
+    if not username or not password:
+        logger.error('USERNAME or PASSWORD environment variables not set.')
+        logger.error('Please check your .env file.')
+        sys.exit(1)
+
     # Create and authenticate the session
-    s = create_session(logger)
+    s = create_session(logger, username, password)
     if not s:
         logger.error('Exiting due to authentication failure.')
         return
@@ -59,7 +55,10 @@ def main():
     from src.genetic import GPLearnSimulator
 
     simulator = GPLearnSimulator(
-        session=s,
+        s,
+        logger,
+        username,
+        password,
         population_size=100,
         generations=50,
         tournament_size=5,
@@ -71,7 +70,6 @@ def main():
         # init_population = INIT_POP_LIST
         max_depth=5,
         max_operators=6,
-        logger=logger,
     )
     simulator.evolve()
 

@@ -73,11 +73,15 @@ class GPLearnSimulator:
     fitness_evaluations: int
     start_time: float | None
     _session_lock: threading.Lock
+    _auth_username: str
+    _auth_password: str
 
     def __init__(
         self,
         session: requests.Session,
         logger: Logger,
+        username: str,
+        password: str,
         *,
         population_size: int = 30,
         generations: int = 20,
@@ -100,6 +104,14 @@ class GPLearnSimulator:
 
         Parameters
         ----------
+        session : requests.Session
+            Authenticated BRAIN API session.
+        logger : Logger
+            Logger instance for logging messages.
+        username : str
+            BRAIN API username (same as used for ``session.auth``).
+        password : str
+            BRAIN API password.
         population_size : int
             Size of the population
         generations : int
@@ -130,8 +142,6 @@ class GPLearnSimulator:
             Number of parallel workers for fitness evaluation (default is 1). Max is 3.
         init_population : list, optional
             List of Program objects to initialize the population with.
-        logger : Logger, optional
-            Logger instance for logging messages.
         hof_size : int, optional
             Number of best individuals to keep track of in the Hall-of-Fame (default is 50).
         """
@@ -156,6 +166,9 @@ class GPLearnSimulator:
         self.p_subtree_mutation = p_subtree_mutation / total_mutation
         self.p_hoist_mutation = p_hoist_mutation / total_mutation
         self.p_point_mutation = p_point_mutation / total_mutation
+
+        self._auth_username = username
+        self._auth_password = password
 
         # Setup session and metric
         self.session = session
@@ -229,19 +242,8 @@ class GPLearnSimulator:
 
     def _recreate_session(self) -> bool:
         """Recreate the session if authentication fails."""
-        from dotenv import load_dotenv
-
-        # Load credentials from .env file
-        load_dotenv()
-        username = os.getenv('USERNAME')
-        password = os.getenv('PASSWORD')
-        assert username is not None and password is not None, (
-            'USERNAME or PASSWORD environment variables not set.'
-        )
-
-        # Create a new session
         self.session = requests.Session()
-        self.session.auth = (username, password)
+        self.session.auth = (self._auth_username, self._auth_password)
 
         # Authenticate the session
         response = self.session.post('https://api.worldquantbrain.com/authentication')
@@ -280,7 +282,6 @@ class GPLearnSimulator:
 
         return passes_tests or high_sharpe or high_fitness
 
-    # TODO: make this async
     def _evaluate_single_program(
         self, program: Program
     ) -> tuple[str, AlphaPerf | None]:
@@ -467,7 +468,6 @@ class GPLearnSimulator:
         _, result = self._evaluate_single_program(program)
         return program.raw_fitness, program.fitness
 
-    # TODO: make this async
     def parallel_evaluate_fitness(
         self, programs_to_evaluate: list[Program], n_parallel: int | None = None
     ):

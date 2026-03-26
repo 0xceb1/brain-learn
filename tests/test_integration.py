@@ -1,7 +1,11 @@
-import unittest
-import numpy as np
 import time
+import unittest
+
+import numpy as np
+import requests
+
 from src.genetic import GPLearnSimulator
+from src.logger import Logger
 
 
 class RealisticMetric:
@@ -103,8 +107,14 @@ class TestIntegration(unittest.TestCase):
         # Create the metric
         metric = RealisticMetric()
 
+        session = requests.Session()
+        logger = Logger(job_name='test-integration', console_log=False, file_log=False)
         # Create the simulator
         gp = GPLearnSimulator(
+            session,
+            logger,
+            'test_user',
+            'test_pass',
             population_size=20,
             generations=5,
             tournament_size=3,
