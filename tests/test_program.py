@@ -1,3 +1,5 @@
+from numpy.random import RandomState
+
 from src.function import (
     Terminal,
     Operator,
@@ -10,9 +12,11 @@ from src.function import (
     HIGH,
     LOW,
     RANK,
-    SQRT,
+    ABS,
 )
 from src.program import Program
+
+_rs = RandomState(0)
 
 
 def program_to_readable(program):
@@ -109,7 +113,7 @@ def test_str_method():
         max_operators=5,
         metric=lambda x: 0,
         parimony_coefficient=0.1,
-        random_state=None,
+        random_state=_rs,
         program=program,
     )
 
@@ -142,7 +146,7 @@ def test_str_method():
         max_operators=5,
         metric=lambda x: 0,
         parimony_coefficient=0.1,
-        random_state=None,
+        random_state=_rs,
         program=complex_program,
     )
 
@@ -163,7 +167,7 @@ def test_str_method():
         max_operators=5,
         metric=lambda x: 0,
         parimony_coefficient=0.1,
-        random_state=None,
+        random_state=_rs,
         program=[],
     )
     result3 = str(empty_program)
@@ -175,21 +179,21 @@ def test_str_method():
     print(f'Expected: {expected3}')
     print(f'Test passed: {result3 == expected3}')
 
-    # Test a more complex nested program: rank(sqrt(open*close))
-    # In postfix notation: open close MUL SQRT RANK
-    nested_program = [OPEN, CLOSE, MUL, SQRT, RANK]
+    # Test a more complex nested program: rank(abs(open*close))
+    # In postfix notation: open close MUL ABS RANK
+    nested_program = [OPEN, CLOSE, MUL, ABS, RANK]
 
     p4 = Program(
         max_depth=3,
         max_operators=5,
         metric=lambda x: 0,
         parimony_coefficient=0.1,
-        random_state=None,
+        random_state=_rs,
         program=nested_program,
     )
 
     result4 = str(p4)
-    expected4 = 'rank(sqrt(multiply(open,close)))'
+    expected4 = 'rank(abs(multiply(open,close)))'
 
     print('\nTest case 4 (Nested operations):')
     print(f'Program (postfix): {program_to_readable(nested_program)}')

@@ -85,7 +85,7 @@ class RealisticMetric:
             score = max(0, min(score, 2.0))
 
             self.execution_time += time.time() - start_time
-            return {'sharpe': score}
+            return {'sharpe': score, 'fitness': score}
 
         except Exception as e:
             self.execution_time += time.time() - start_time

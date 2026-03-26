@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from sympy import Integer as Int
-from src.function import Operator, ADD, SUB, MUL, DIV, OPEN, HIGH, LOW, VOLUME
+from src.function import Operator, Terminal, ADD, SUB, MUL, DIV, OPEN, HIGH, LOW, VOLUME
 from src.program import Program
 
 
@@ -9,16 +9,13 @@ class TestProgramUnit(unittest.TestCase):
     def setUp(self):
         # Set up a fixed random state for reproducibility
         self.random_state = np.random.RandomState(42)
-        # Mock arities and metric for test purposes
-        self.arities = {2: [ADD, SUB, MUL, DIV]}
         self.metric = lambda x: 0  # Dummy metric
 
     def test_single_terminal_unit(self):
         """Test unit property with a single terminal node."""
         # Create a program with just one terminal
-        program = [OPEN]  # OPEN has unit 3
+        program: list[Operator | Terminal] = [OPEN]  # OPEN has unit 3
         prog = Program(
-            arities=self.arities,
             max_depth=3,
             max_operators=5,
             metric=self.metric,
@@ -34,9 +31,8 @@ class TestProgramUnit(unittest.TestCase):
         """Test unit property with a simple operator and terminals."""
         # Create a program: OPEN HIGH ADD
         # This should be equivalent to ADD(OPEN, HIGH) both with unit 3
-        program = [OPEN, HIGH, ADD]
+        program: list[Operator | Terminal] = [OPEN, HIGH, ADD]
         prog = Program(
-            arities=self.arities,
             max_depth=3,
             max_operators=5,
             metric=self.metric,
@@ -55,9 +51,8 @@ class TestProgramUnit(unittest.TestCase):
         # Create a more complex program: OPEN HIGH ADD VOLUME MUL
         # This should be equivalent to MUL(ADD(OPEN, HIGH), VOLUME)
         # ADD(OPEN, HIGH) has unit 3, VOLUME has unit 2, MUL should multiply the units
-        program = [OPEN, HIGH, ADD, VOLUME, MUL]
+        program: list[Operator | Terminal] = [OPEN, HIGH, ADD, VOLUME, MUL]
         prog = Program(
-            arities=self.arities,
             max_depth=3,
             max_operators=5,
             metric=self.metric,
@@ -75,9 +70,8 @@ class TestProgramUnit(unittest.TestCase):
 
     def test_unit_caching(self):
         """Test that unit values are cached and not recomputed unnecessarily."""
-        program = [OPEN, HIGH, ADD]
+        program: list[Operator | Terminal] = [OPEN, HIGH, ADD]
         prog = Program(
-            arities=self.arities,
             max_depth=3,
             max_operators=5,
             metric=self.metric,
@@ -86,7 +80,8 @@ class TestProgramUnit(unittest.TestCase):
         )
 
         # Access unit first time to compute
-        units_first = prog.unit
+        _ = prog.unit
+        assert prog._unit is not None
 
         # Modify internal _unit directly to test caching
         prog._unit[0] = Int(999)  # Change the first unit to a dummy value
@@ -131,9 +126,8 @@ class TestProgramUnit(unittest.TestCase):
         )
 
         # Create a program with incompatible units: OPEN VOLUME TEST_OP
-        program = [OPEN, VOLUME, TEST_OP]
+        program: list[Operator | Terminal] = [OPEN, VOLUME, TEST_OP]
         prog = Program(
-            arities={2: [TEST_OP]},
             max_depth=3,
             max_operators=5,
             metric=self.metric,
@@ -154,9 +148,8 @@ class TestProgramUnit(unittest.TestCase):
     def test_validate_program_with_units(self):
         """Test that validate_program correctly checks unit compatibility."""
         # 1. Create a valid program (same units for ADD)
-        valid_program = [OPEN, HIGH, ADD]
+        valid_program: list[Operator | Terminal] = [OPEN, HIGH, ADD]
         valid_prog = Program(
-            arities=self.arities,
             max_depth=3,
             max_operators=5,
             metric=self.metric,
@@ -177,13 +170,12 @@ class TestProgramUnit(unittest.TestCase):
             'strict_add', 2, lambda x, y: f'add({x},{y})', failing_unit_rule
         )
 
-        invalid_program = [
+        invalid_program: list[Operator | Terminal] = [
             OPEN,
             VOLUME,
             STRICT_ADD,
         ]  # OPEN has unit 3, VOLUME has unit 2
         invalid_prog = Program(
-            arities={2: [STRICT_ADD]},
             max_depth=3,
             max_operators=5,
             metric=self.metric,
@@ -196,13 +188,12 @@ class TestProgramUnit(unittest.TestCase):
         self.assertFalse(invalid_prog.validate_program())
 
         # 3. Test with MUL which should accept different units
-        mul_program = [
+        mul_program: list[Operator | Terminal] = [
             OPEN,
             VOLUME,
             MUL,
         ]  # OPEN has unit 3, VOLUME has unit 2, MUL should work
         mul_prog = Program(
-            arities=self.arities,
             max_depth=3,
             max_operators=5,
             metric=self.metric,
