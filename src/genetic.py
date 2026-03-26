@@ -12,6 +12,7 @@ import numpy as np
 import requests
 
 from src.brain import AlphaPerf
+from src.function import Operator, Terminal
 from src.logger import Logger
 from src.program import Program
 from src.utils import evaluate_fitness
@@ -52,20 +53,23 @@ class GPLearnSimulator:
     hof_size: int
     parsimony_coefficient: float
 
-    n_parallel: int
-    init_population: list[Program] | None
-    max_depth: int
-    max_operators: int
+    n_parallel: int  # max=3 for normal BRAIN account
+    init_population: list[list[Operator | Terminal]] | None
+    max_depth: int  # max_depth per program
+    max_operators: int  # max_operators per program
     random_state: np.random.RandomState
-    metric: Callable[[str], AlphaPerf | None]
+    metric: Callable[
+        [str], AlphaPerf | None
+    ]  # function which evaluates the expression and return an AlphaPerf
 
     population: list[Program]
     history: list[GenReport]
     best_program: Program | None
     best_fitness: float
     generation: int
+    # TODO: change set[str] to set[Program] for better hash performance
     evaluated_expressions: set[str]
-    hall_of_fame: list[tuple[float, str, AlphaPerf]]
+    hall_of_fame: list[tuple[float, str, AlphaPerf]]  # (fitness, expr, performance)
     fitness_evaluations: int
     start_time: float | None
     _session_lock: threading.Lock
@@ -88,7 +92,7 @@ class GPLearnSimulator:
         random_state: int | np.random.RandomState = 42,
         parsimony_coefficient: float = 0.15,
         n_parallel: int = 3,
-        init_population: list[Program] | None = None,
+        init_population: list[list[Terminal | Operator]] | None = None,
         hof_size: int = 50,
     ):
         """
@@ -143,15 +147,15 @@ class GPLearnSimulator:
         self.hof_size = hof_size
 
         # Normalize crossover and mutation probabilities to sum to 1
-        total_prob: float = p_crossover + p_mutation
-        self.p_crossover: float = p_crossover / total_prob
-        self.p_mutation: float = p_mutation / total_prob
+        total_prob = p_crossover + p_mutation
+        self.p_crossover = p_crossover / total_prob
+        self.p_mutation = p_mutation / total_prob
 
         # Normalize the mutation type probabilities to sum to 1
-        total_mutation: float = p_subtree_mutation + p_hoist_mutation + p_point_mutation
-        self.p_subtree_mutation: float = p_subtree_mutation / total_mutation
-        self.p_hoist_mutation: float = p_hoist_mutation / total_mutation
-        self.p_point_mutation: float = p_point_mutation / total_mutation
+        total_mutation = p_subtree_mutation + p_hoist_mutation + p_point_mutation
+        self.p_subtree_mutation = p_subtree_mutation / total_mutation
+        self.p_hoist_mutation = p_hoist_mutation / total_mutation
+        self.p_point_mutation = p_point_mutation / total_mutation
 
         # Setup session and metric
         self.session = session
@@ -180,7 +184,9 @@ class GPLearnSimulator:
         self.start_time = None
         self._session_lock = threading.Lock()
 
-    def _create_initial_programs(self, programs):
+    def _create_initial_programs(
+        self, programs: list[list[Operator | Terminal]]
+    ) -> None:
         """Create Program objects from the provided initial programs."""
         self.population = [
             Program(
@@ -198,7 +204,7 @@ class GPLearnSimulator:
         for prog in self.population:
             self.evaluated_expressions.add(str(prog))
 
-    def _initialize_population(self):
+    def _initialize_population(self) -> None:
         """Initialize population with random programs, avoiding duplicates."""
         # Create random programs until we reach the desired population size
         while len(self.population) < self.population_size:
@@ -221,7 +227,7 @@ class GPLearnSimulator:
                 f'Initialized population with {len(self.population)} programs'
             )
 
-    def _recreate_session(self):
+    def _recreate_session(self) -> bool:
         """Recreate the session if authentication fails."""
         from dotenv import load_dotenv
 
@@ -260,7 +266,7 @@ class GPLearnSimulator:
                 print(f'Response: {response.text}')
             return False
 
-    def _meets_hof_threshold(self, result):
+    def _meets_hof_threshold(self, result) -> bool:
         """Checks if a simulation result meets the criteria for Hall of Fame."""
         if not result:
             return False
@@ -268,19 +274,22 @@ class GPLearnSimulator:
         # Check if result passes all specified tests
         passes_tests = all(result.get(k) == 'PASS' for k in IS_TESTS if k in result)
 
-        # Check threshold values
+        # Check threshold values (NOTE: hardcoded threshold)
         high_sharpe = result.get('sharpe', -float('inf')) > 2.0
         high_fitness = result.get('fitness', -float('inf')) >= 1.5
 
         return passes_tests or high_sharpe or high_fitness
 
-    def _evaluate_single_program(self, program):
+    # TODO: make this async
+    def _evaluate_single_program(
+        self, program: Program
+    ) -> tuple[str, AlphaPerf | None]:
         """
         Evaluate the fitness of a single program, handling retries and session recreation.
 
         Returns:
         -------
-        tuple: (program_str, result_dict or None if skipped/failed)
+        tuple[str, AlphaPerf | None]: (program_str, performance or None if skipped)
         """
         program_str = str(program)
 
@@ -289,7 +298,7 @@ class GPLearnSimulator:
             return program_str, None
 
         # Try to evaluate with reconnection attempts if needed
-        result = None
+        result: AlphaPerf | None = None
         for attempt in range(MAX_RECONNECTION_ATTEMPTS):
             try:
                 # Get current session safely
@@ -366,7 +375,7 @@ class GPLearnSimulator:
                 if attempt < MAX_RECONNECTION_ATTEMPTS - 1:
                     time.sleep(2**attempt)  # Exponential backoff
                 else:
-                    result = {'error': 'timeout'}
+                    result = cast(AlphaPerf, {'error': 'timeout'})
 
             except requests.exceptions.RequestException as e:
                 if self.logger:
@@ -376,7 +385,7 @@ class GPLearnSimulator:
                 if attempt < MAX_RECONNECTION_ATTEMPTS - 1:
                     time.sleep(2**attempt)
                 else:
-                    result = {'error': f'request error: {e}'}
+                    result = cast(AlphaPerf, {'error': f'request error: {e}'})
 
         # Always mark as evaluated to prevent retry
         self.evaluated_expressions.add(program_str)
@@ -398,13 +407,10 @@ class GPLearnSimulator:
 
             # Update Hall of Fame if result meets threshold
             if self._meets_hof_threshold(result):
-                alpha_result = cast(AlphaPerf, result)
                 fitness_for_hof: float = (
-                    alpha_result.get('fitness')
-                    or alpha_result.get('sharpe')
-                    or -float('inf')
+                    result.get('fitness') or result.get('sharpe') or -float('inf')
                 )
-                entry = (fitness_for_hof, program_str, alpha_result)
+                entry = (fitness_for_hof, program_str, result)
 
                 if len(self.hall_of_fame) < self.hof_size:
                     heapq.heappush(self.hall_of_fame, entry)
@@ -422,6 +428,7 @@ class GPLearnSimulator:
 
         return program_str, result
 
+    # TODO: update to list[list[Operator | Terminal]]
     def _save_to_initial_population(self, program_str, result, fitness):
         """Save a program to the initial population file."""
         try:
@@ -449,7 +456,7 @@ class GPLearnSimulator:
             if self.logger:
                 self.logger.error(f'Error saving to init-population.pkl: {e}')
 
-    def _evaluate_fitness(self, program):
+    def _evaluate_fitness(self, program) -> tuple[float, float]:
         """Deprecated: Use parallel_evaluate_fitness."""
         warnings.warn(
             '_evaluate_fitness is deprecated. Use parallel_evaluate_fitness instead.',
@@ -460,14 +467,14 @@ class GPLearnSimulator:
         _, result = self._evaluate_single_program(program)
         return program.raw_fitness, program.fitness
 
-    def parallel_evaluate_fitness(self, programs_to_evaluate, n_parallel=None):
+    # TODO: make this async
+    def parallel_evaluate_fitness(
+        self, programs_to_evaluate: list[Program], n_parallel: int | None = None
+    ):
         """
         Evaluate fitness for a list of programs in parallel.
         Manages evaluated_expressions and HOF updates.
         """
-        if not programs_to_evaluate:
-            return
-
         if n_parallel is None:
             n_parallel = self.n_parallel
 
@@ -477,7 +484,6 @@ class GPLearnSimulator:
             program_str = str(program)
             if program_str not in self.evaluated_expressions:
                 to_evaluate.append(program)
-            # If already evaluated, fitness should be set elsewhere
 
         if not to_evaluate:
             return
@@ -527,12 +533,12 @@ class GPLearnSimulator:
                     f'HOF: {len(self.hall_of_fame)} entries, best={best_hof:.4f}'
                 )
 
-    def _tournament_selection(self):
+    def _tournament_selection(self) -> Program:
         """Select a program using tournament selection."""
         indices = self.random_state.randint(
             0, len(self.population), self.tournament_size
         )
-        tournament = [self.population[i] for i in indices]
+        tournament: list[Program] = [self.population[i] for i in indices]
 
         # Return the best individual in the tournament based on pre-calculated fitness
         # Handle potential None fitness values gracefully if evaluation failed.
@@ -543,12 +549,9 @@ class GPLearnSimulator:
             ),
         )
 
-    def _update_best(self):
+    def _update_best(self) -> None:
         """Update the best program found so far based on the main population."""
         # Find the best program in the current population
-        if not self.population:
-            return
-
         current_best = max(
             self.population,
             key=lambda program: (
@@ -570,17 +573,15 @@ class GPLearnSimulator:
         if self.start_time is None:
             self.start_time = time.time()
 
-        # Initialize population if needed
         if not self.population:
             self._initialize_population()
 
-        # Initial evaluation of the starting population
         if self.logger:
             self.logger.log(f'Initial evaluation of {len(self.population)} programs...')
-        # Ensure all initial programs are evaluated and HOF is populated
+
         needs_evaluation = [p for p in self.population if p.fitness is None]
         self.parallel_evaluate_fitness(needs_evaluation)
-        self._update_best()  # Update best based on initial population
+        self._update_best()
 
         if verbose:
             self.logger.log(
@@ -591,8 +592,8 @@ class GPLearnSimulator:
             self.generation = gen
             start_gen_time = time.time()
 
-            next_population = []
-            next_gen_strings = set()
+            next_population: list[Program] = []
+            next_gen_strings: set[str] = set()
 
             # Add elitism: Keep the best program from the previous generation
             if self.best_program is not None:
@@ -742,7 +743,7 @@ class GPLearnSimulator:
         if not self.hall_of_fame:
             return self.best_program  # Fall back to population best if HOF is empty
 
-        # HOF stores (fitness, program_str, result_dict), sorted smallest first by heapq
+        # HOF stores (fitness, program_str, AlphaPerf), sorted smallest first by heapq
         best_entry = max(self.hall_of_fame, key=lambda item: item[0])
         fitness, program_str, result_dict = best_entry
 

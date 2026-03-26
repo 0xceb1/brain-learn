@@ -1,5 +1,3 @@
-from typing import Callable
-
 from src.brain import AlphaPerf
 from src.function import (
     Operator,
@@ -15,6 +13,7 @@ from src.function import (
 import numpy as np
 from numpy.random import RandomState
 from copy import deepcopy
+from typing import Callable
 from sympy import Expr, Integer as Int
 
 
@@ -28,7 +27,9 @@ class Program:
     arities: dict[int, list[Operator]]
     operator_set: list[Operator]
     terminal_set: list[Terminal]
-    program: list[Operator | Terminal]
+    program: list[
+        Operator | Terminal
+    ]  # flattern list representation of the expression tree in Reverse Polish order
     raw_fitness: float | None
     fitness: float | None
     _unit: list[Expr | None] | None
@@ -77,10 +78,10 @@ class Program:
             A list of sympy symbolic values representing the units of each node.
         """
         if self._unit is None or len(self._unit) != len(self.program):
-            self._unit = [None] * len(self.program)
+            self._unit: list[Expr | None] = [None] * len(self.program)
 
             # Use a stack to track units during program evaluation
-            stack = []
+            stack: list[Expr | None] = []
 
             for i, node in enumerate(self.program):
                 if isinstance(node, Terminal):
@@ -120,7 +121,9 @@ class Program:
 
         return self._unit
 
-    def normalize_program(self, program, random_state):
+    def normalize_program(
+        self, program: list[Operator | Terminal], random_state: RandomState
+    ) -> list[Operator | Terminal]:
         """Normalize the program to ensure the final expression has unit Int(1).
 
         This function analyzes the unit of the program and if it's not Int(1),
@@ -152,11 +155,12 @@ class Program:
                 # Choose a normalizer from the available options that guarantee unit Int(1)
                 normalizer_options = [RANK, ZSCORE, TSZ_21, SURPRISE_21]
                 # Weight the choices based on their expected effectiveness
-                weights = [0.2, 0.3, 0.25, 0.25]  # Higher weights for RANK and ZSCORE
+                # NOTE: hardcoded weights
+                weights = [0.2, 0.3, 0.25, 0.25]
 
                 # Choose normalizer based on weights
-                idx = random_state.choice(len(normalizer_options), p=weights)
-                normalizer = normalizer_options[idx]
+                idx: int = random_state.choice(len(normalizer_options), p=weights)
+                normalizer: Operator = normalizer_options[idx]
 
                 # Apply the chosen normalizer
                 program = program + [normalizer]
@@ -180,7 +184,7 @@ class Program:
         return program
 
     def build_program(self, random_state) -> list[Operator | Terminal]:
-        """Build a random program tree in postfix notation.
+        """Build a random program tree in Reverse Polish notation.
 
         Parameters
         ----------
@@ -189,7 +193,7 @@ class Program:
 
         Returns
         -------
-        program : list
+        program : list[Operator | Terminal]
             The flattened tree representation of the program in postfix notation.
         """
         max_attempts = 50  # Maximum number of attempts to build a valid program
@@ -235,10 +239,8 @@ class Program:
                 terminal = weighted_choice(self.terminal_set)
                 return [terminal], 0
             else:
-                # Choose operator
-                if random_state.uniform() < 0.7 and self.arities.get(
-                    2, []
-                ):  # Prefer binary operators
+                # Choose operator (prefer binary operators)
+                if random_state.uniform() < 0.7 and self.arities.get(2, []):
                     operator = weighted_choice(self.arities[2])
                 else:
                     operator = weighted_choice(self.operator_set)
@@ -252,8 +254,8 @@ class Program:
                         next_min_depth = 1
 
                     subprogram, sub_operators = generate_subprogram(
-                        depth + 1,
-                        remaining_operators
+                        depth=depth + 1,
+                        remaining_operators=remaining_operators
                         - 1
                         - len(program) // 2,  # Rough estimate of remaining operators
                         min_depth=next_min_depth,
@@ -266,7 +268,7 @@ class Program:
                     [node for node in program if isinstance(node, Operator)]
                 )
 
-        # Try to generate valid programs
+        # Try to generate valid programs (dumb approach)
         for _ in range(max_attempts):
             # Generate a random program - start with at least 2 levels of depth
             try:
@@ -317,7 +319,7 @@ class Program:
         # program = self.normalize_program(program, random_state)
         return program
 
-    def validate_program(self):
+    def validate_program(self) -> bool:
         """Validate that the embedded program in the object is valid.
         For a valid postfix expression, we should end up with exactly one value on the stack.
         Also validates unit compatibility for all operations.
@@ -443,13 +445,11 @@ class Program:
         return len(self.program)
 
     def compute_raw_fitness(self):
-        # First check if the final unit is Int(1)
+        # Check if the final unit is Int(1)
         units = self.unit
         final_unit = units[-1] if units else None
 
-        # If the unit is not Int(1), normalize the program
         if final_unit != Int(1):
-            # Create a normalized version of the program
             normalized_program = self.normalize_program(self.program, self.random_state)
 
             # Temporarily save the original program
@@ -467,10 +467,10 @@ class Program:
 
         # Evaluate the expression
         try:
-            result = self.metric(fast_expr)
+            result: AlphaPerf | None = self.metric(fast_expr)
             if result is None:
                 return float('-inf')
-            fitness = result['fitness']
+            fitness = result.get('fitness')
             if fitness is None:
                 return float('-inf')
             return fitness
@@ -481,7 +481,11 @@ class Program:
         penalty = self.parimony_coefficient * len(self.program)
         return self.compute_raw_fitness() - penalty
 
-    def get_subtree(self, random_state, program=None):
+    def get_subtree(
+        self,
+        random_state: RandomState,
+        program: list[Operator | Terminal] | None = None,
+    ) -> tuple[int, int]:
         """Get a random subtree from the program.
 
         Parameters
@@ -522,7 +526,7 @@ class Program:
             probs = np.cumsum(probs)
 
         # Select start point
-        start = np.searchsorted(probs, random_state.uniform())
+        start = int(np.searchsorted(probs, random_state.uniform()))
 
         # Ensure start is in bounds
         start = min(start, len(program) - 1)
@@ -544,11 +548,13 @@ class Program:
 
         return start, end
 
-    def reproduce(self):
+    def reproduce(self) -> list[Operator | Terminal]:
         """Return a copy of the embedded program."""
         return deepcopy(self.program)
 
-    def crossover(self, donor, random_state=None):
+    def crossover(
+        self, donor: list[Operator | Terminal], random_state: RandomState | None = None
+    ) -> tuple[list[Operator | Terminal], list[int], list[int]]:
         """Perform the crossover genetic operation on the program.
 
         Crossover selects a random subtree from the embedded program to be
@@ -557,7 +563,7 @@ class Program:
 
         Parameters
         ----------
-        donor : list
+        donor : list[Operator | Terminal]
             The flattened tree representation of the donor program.
 
         random_state : RandomState instance
@@ -565,11 +571,11 @@ class Program:
 
         Returns
         -------
-        program : list
+        program : list[Operator | Terminal]
             The flattened tree representation of the program.
-        removed : list
+        removed : list[int]
             Indices of nodes removed from the original program.
-        donor_removed : list
+        donor_removed : list[int]
             Indices of nodes removed from the donor program.
         """
         # Maximum attempts to find a valid crossover
@@ -580,7 +586,7 @@ class Program:
         for _ in range(max_attempts):
             # Get a subtree to replace
             start, end = self.get_subtree(random_state)
-            removed = range(start, end)
+            removed = list(range(start, end))
 
             # Get a subtree to donate
             donor_start, donor_end = self.get_subtree(random_state, donor)
@@ -612,7 +618,9 @@ class Program:
         # If no valid crossover was found, return a copy of the original program
         return deepcopy(self.program), [], []
 
-    def subtree_mutation(self, random_state=None):
+    def subtree_mutation(
+        self, random_state: RandomState | None = None
+    ) -> tuple[list[Operator | Terminal], list[int], list[int]]:
         """Perform the subtree mutation operation on the program.
 
         Subtree mutation selects a random subtree from the embedded program to
@@ -640,7 +648,9 @@ class Program:
         # Do subtree mutation via the headless chicken method!
         return self.crossover(chicken, random_state)
 
-    def hoist_mutation(self, random_state=None):
+    def hoist_mutation(
+        self, random_state: RandomState | None = None
+    ) -> tuple[list[Operator | Terminal], list[int]]:
         """Perform the hoist mutation operation on the program.
 
         Hoist mutation selects a random subtree from the embedded program to
@@ -655,9 +665,9 @@ class Program:
 
         Returns
         -------
-        program : list
+        program : list[Operator | Terminal]
             The flattened tree representation of the program.
-        removed : list, optional
+        removed : list[int], optional
             The indices of nodes that were removed from the original program.
         """
         # Maximum attempts to find a valid mutation
@@ -702,7 +712,9 @@ class Program:
         # If no valid mutation was found, return a copy of the original program
         return deepcopy(self.program), []
 
-    def point_mutation(self, random_state=None):
+    def point_mutation(
+        self, random_state: RandomState | None = None
+    ) -> tuple[list[Operator | Terminal], list[int]]:
         """Perform the point mutation operation on the program.
 
         Point mutation selects random nodes from the embedded program to be
@@ -772,7 +784,7 @@ class Program:
     def create_from_list(
         program: list[Operator | Terminal],
         metric: Callable[[str], AlphaPerf | None] | None = None,
-    ):
+    ) -> Program:
         if metric is None:
             metric = lambda _: {'fitness': 0.0}  # noqa: E731
         return Program(
