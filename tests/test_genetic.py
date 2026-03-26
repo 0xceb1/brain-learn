@@ -127,7 +127,10 @@ class TestGPLearnSimulator(unittest.TestCase):
             self.logger,
             self.username,
             self.password,
-            population_size=50, generations=10, tournament_size=3, random_state=42
+            population_size=50,
+            generations=10,
+            tournament_size=3,
+            random_state=42,
         )
 
         # Check that custom parameters were set correctly
@@ -237,7 +240,10 @@ class TestGPLearnSimulator(unittest.TestCase):
             self.logger,
             self.username,
             self.password,
-            population_size=10, generations=3, tournament_size=3, random_state=42
+            population_size=10,
+            generations=3,
+            tournament_size=3,
+            random_state=42,
         )
         gp.metric = dummy_metric
 
@@ -293,7 +299,10 @@ class TestGPLearnSimulator(unittest.TestCase):
             self.logger,
             self.username,
             self.password,
-            population_size=15, generations=5, tournament_size=3, random_state=42
+            population_size=15,
+            generations=5,
+            tournament_size=3,
+            random_state=42,
         )
         gp.metric = deterministic_metric
 
@@ -310,7 +319,10 @@ class TestGPLearnSimulator(unittest.TestCase):
             self.logger,
             self.username,
             self.password,
-            population_size=15, generations=5, tournament_size=3, random_state=42
+            population_size=15,
+            generations=5,
+            tournament_size=3,
+            random_state=42,
         )
         gp2.metric = deterministic_metric
         gp2.evolve(verbose=False)
@@ -502,7 +514,9 @@ class TestGPLearnSimulator(unittest.TestCase):
             self.logger,
             self.username,
             self.password,
-            population_size=10, n_parallel=1, random_state=42
+            population_size=10,
+            n_parallel=1,
+            random_state=42,
         )
         gp_sequential.metric = delayed_metric
 
@@ -521,7 +535,9 @@ class TestGPLearnSimulator(unittest.TestCase):
             self.logger,
             self.username,
             self.password,
-            population_size=10, n_parallel=3, random_state=42
+            population_size=10,
+            n_parallel=3,
+            random_state=42,
         )
         gp_parallel.metric = delayed_metric
 

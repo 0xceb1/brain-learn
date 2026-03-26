@@ -11,11 +11,10 @@ from datetime import timedelta
 import numpy as np
 import requests
 
-from src.brain import AlphaPerf
 from src.function import Operator, Terminal
 from src.logger import Logger
 from src.program import Program
-from src.utils import evaluate_fitness
+from src.brain import AlphaPerf, evaluate_fitness
 
 # Maximum number of reconnection attempts
 MAX_RECONNECTION_ATTEMPTS = 5

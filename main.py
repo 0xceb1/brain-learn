@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 import requests
 import sys
-from src.function import *
 from time import time
 import dill
 from src.logger import Logger

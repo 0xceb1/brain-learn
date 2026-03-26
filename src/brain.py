@@ -1,10 +1,11 @@
 import requests
+from functools import partial
 from time import sleep
 import pandas as pd
 from datetime import datetime
 import os
 import threading
-from typing import TypedDict, cast
+from typing import Callable, TypedDict, cast
 
 
 class AlphaPerf(TypedDict, total=False):
@@ -277,6 +278,12 @@ def simulate(
         else:
             print(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] {log_msg}')
         return None
+
+
+def evaluate_fitness(
+    s: requests.Session, logger=None
+) -> Callable[[str], AlphaPerf | None]:
+    return partial(simulate, s, logger=logger)
 
 
 def get_alpha_history(s: requests.Session, pandas=True):

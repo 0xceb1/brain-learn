@@ -1,6 +1,12 @@
 from typing import Callable
 from sympy import Integer as Int
-from src.utils import help_check_same
+
+
+def help_check_same(x: Int, y: Int) -> Int:
+    if x == y:
+        return x
+    else:
+        raise ValueError('This binary operator requires the same unit for both inputs')
 
 
 class Terminal:
@@ -24,8 +30,8 @@ class Operator:
         self,
         name: str,
         arity: int,
-        function: Callable,
-        unit_rule: Callable,
+        function: Callable[..., str],
+        unit_rule: Callable[..., Int],
         weight: float = 1.0,
     ):
         self.name = name
