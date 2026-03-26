@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 import requests
 import sys
 from time import time
-import dill
 from src.logger import Logger
 
 
@@ -48,9 +47,6 @@ def main():
         logger.error('Exiting due to authentication failure.')
         return
 
-    _INIT_POP_LIST = dill.load(open('initial-population.pkl', 'rb'))
-
-    # Run the GPLearn simulator
     from src.genetic import GPLearnSimulator
 
     simulator = GPLearnSimulator(
@@ -66,7 +62,7 @@ def main():
         p_subtree_mutation=0.1,
         parsimony_coefficient=0.02,
         random_state=int(time() / 1000),
-        # init_population = INIT_POP_LIST
+        # init_population=...
         max_depth=5,
         max_operators=6,
     )

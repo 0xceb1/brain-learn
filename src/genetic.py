@@ -1,3 +1,4 @@
+import shutil
 import concurrent.futures
 import heapq
 import os
@@ -71,6 +72,7 @@ class GPLearnSimulator:
     hall_of_fame: list[tuple[float, str, AlphaPerf]]  # (fitness, expr, performance)
     fitness_evaluations: int
     start_time: float | None
+    init_population_save_path: str | os.PathLike[str] | None
     _session_lock: threading.Lock
     _auth_username: str
     _auth_password: str
@@ -96,6 +98,9 @@ class GPLearnSimulator:
         parsimony_coefficient: float = 0.15,
         n_parallel: int = 3,
         init_population: list[list[Terminal | Operator]] | None = None,
+        init_population_save_path: str
+        | os.PathLike[str]
+        | None = 'initial-population.pkl',
         hof_size: int = 50,
     ):
         """
@@ -195,6 +200,7 @@ class GPLearnSimulator:
         self.fitness_evaluations = 0
         self.start_time = None
         self._session_lock = threading.Lock()
+        self.init_population_save_path = init_population_save_path
 
     def _create_initial_programs(
         self, programs: list[list[Operator | Terminal]]
@@ -417,8 +423,10 @@ class GPLearnSimulator:
                 else:
                     heapq.heappushpop(self.hall_of_fame, entry)
 
-                # Save good programs to file
-                self._save_to_initial_population(program_str, result, fitness_for_hof)
+                if self.init_population_save_path is not None:
+                    self._save_to_initial_population(
+                        self.init_population_save_path, program.program
+                    )
         else:
             # Handle evaluation failure
             program.raw_fitness = float('-inf')
@@ -428,33 +436,25 @@ class GPLearnSimulator:
 
         return program_str, result
 
-    # TODO: update to list[list[Operator | Terminal]]
-    def _save_to_initial_population(self, program_str, result, fitness):
-        """Save a program to the initial population file."""
+    def _save_to_initial_population(
+        self, path: str | os.PathLike[str], rpn: list[Operator | Terminal]
+    ) -> None:
         try:
-            # Load existing data if file exists
-            existing_data = {}
-            if os.path.exists('initial-population.pkl'):
-                with open('initial-population.pkl', 'rb') as f:
-                    try:
-                        existing_data = pickle.load(f)
-                    except EOFError:
-                        if self.logger:
-                            self.logger.warning(
-                                'init-population.pkl is empty or corrupted. Starting fresh.'
-                            )
-                        existing_data = {}
+            population_path = os.fspath(path)
+            existing_programs: list[list[Operator | Terminal]] = []
 
-            # Add or update the program
-            existing_data[program_str] = result
+            if os.path.exists(population_path):
+                shutil.move(population_path, f'{path}.bak')
+                self.logger.warning(
+                    f'{population_path} existed, move to {population_path}.bak'
+                )
 
-            # Save back to file
-            with open('initial-population.pkl', 'wb') as f:
-                pickle.dump(existing_data, f)
+            with open(population_path, 'wb') as f:
+                pickle.dump(existing_programs, f)
 
         except Exception as e:
             if self.logger:
-                self.logger.error(f'Error saving to init-population.pkl: {e}')
+                self.logger.error(f'Error saving to initial population file: {e}')
 
     def _evaluate_fitness(self, program) -> tuple[float, float]:
         """Deprecated: Use parallel_evaluate_fitness."""
