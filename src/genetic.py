@@ -15,18 +15,18 @@ import requests
 from src.function import Operator, Terminal
 from src.logger import Logger
 from src.program import Program
-from src.brain import AlphaPerf, evaluate_fitness
+from src.brain import AlphaPerf, PassOrFail, evaluate_fitness
 
 # Maximum number of reconnection attempts
 MAX_RECONNECTION_ATTEMPTS = 5
 IS_TESTS = [
-    'LOW_SHARPE',
-    'LOW_FITNESS',
-    'LOW_TURNOVER',
-    'HIGH_TURNOVER',
-    'CONCENTRATED_WEIGHT',
-    'LOW_SUB_UNIVERSE_SHARPE',
-    'MATCHES_COMPETITION',
+    'low_sharpe',
+    'low_fitness',
+    'low_turnover',
+    'high_turnover',
+    'concentrated_weight',
+    'low_sub_universe_sharpe',
+    'matches_competition',
 ]
 
 
@@ -267,7 +267,9 @@ class GPLearnSimulator:
             return False
 
         # Check if result passes all specified tests
-        passes_tests = all(result.get(k) == 'PASS' for k in IS_TESTS if k in result)
+        passes_tests = all(
+            result.get(k) == PassOrFail.PASS for k in IS_TESTS if k in result
+        )
 
         # Check threshold values (NOTE: hardcoded threshold)
         high_sharpe = result.get('sharpe', -float('inf')) > 2.0
