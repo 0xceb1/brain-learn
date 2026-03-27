@@ -162,39 +162,6 @@ class TestGPLearnSimulator(unittest.TestCase):
         for member in gp.population:
             self.assertIsInstance(member, Program)
 
-    def test_fitness_evaluation(self):
-        """Test the fitness evaluation of a program."""
-        # Create a simulator with the dummy metric function
-        gp = GPLearnSimulator(
-            self.session,
-            self.logger,
-            self.username,
-            self.password,
-            random_state=42,
-        )
-        gp.metric = dummy_metric
-
-        # Create a simple program for testing
-        program = Program(
-            max_depth=3,
-            max_operators=5,
-            random_state=np.random.RandomState(42),
-            metric=dummy_metric,
-            parimony_coefficient=0.1,
-            program=[OPEN, CLOSE, ADD, VOLUME, MUL],  # (OPEN + CLOSE) * VOLUME
-        )
-
-        raw, fitness = gp._evaluate_fitness(program)
-
-        self.assertIsInstance(raw, float)
-        self.assertIsInstance(fitness, float)
-
-        # Check that the program's fitness has been set
-        self.assertIsNotNone(program.fitness)
-
-        # Ensure fitness evaluations counter is incremented
-        self.assertEqual(gp.fitness_evaluations, 1)
-
     def test_tournament_selection(self):
         """Test the tournament selection method."""
         # Create a simulator
@@ -440,52 +407,6 @@ class TestGPLearnSimulator(unittest.TestCase):
 
         # Now population should be the specified size
         self.assertEqual(len(gp.population), 5)
-
-    def test_edge_case_fitness(self):
-        """Test handling of edge cases in fitness evaluation."""
-        gp = GPLearnSimulator(
-            self.session,
-            self.logger,
-            self.username,
-            self.password,
-            random_state=42,
-        )
-
-        def problematic_metric(expr):
-            if 'divide' in expr:
-                return {'error': 'divide failed'}
-            if len(expr) < 10:
-                return {'error': 'too short'}
-            return {'sharpe': 0.5, 'fitness': 0.5}
-
-        gp.metric = problematic_metric
-
-        # Create programs that will trigger different error conditions
-        program1 = Program(
-            max_depth=3,
-            max_operators=5,
-            random_state=np.random.RandomState(42),
-            metric=problematic_metric,
-            parimony_coefficient=0.1,
-            program=[OPEN, CLOSE, DIV],  # Should return None
-        )
-
-        program2 = Program(
-            max_depth=3,
-            max_operators=5,
-            random_state=np.random.RandomState(42),
-            metric=problematic_metric,
-            parimony_coefficient=0.1,
-            program=[OPEN],  # Should raise exception
-        )
-
-        _raw1, fitness1 = gp._evaluate_fitness(program1)
-        _raw2, fitness2 = gp._evaluate_fitness(program2)
-
-        self.assertEqual(fitness1, float('-inf'))
-        self.assertEqual(fitness2, float('-inf'))
-        self.assertEqual(program1.fitness, float('-inf'))
-        self.assertEqual(program2.fitness, float('-inf'))
 
     def test_parallel_evaluation(self):
         """Test the parallel fitness evaluation functionality."""

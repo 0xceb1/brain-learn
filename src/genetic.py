@@ -5,7 +5,6 @@ import os
 import pickle
 import threading
 import time
-import warnings
 from typing import Callable, TypedDict, cast
 from datetime import timedelta
 
@@ -434,17 +433,6 @@ class GPLearnSimulator:
 
         except Exception as e:
             self.logger.error(f'Error saving to initial population file: {e}')
-
-    def _evaluate_fitness(self, program) -> tuple[float, float]:
-        """Deprecated: Use parallel_evaluate_fitness."""
-        warnings.warn(
-            '_evaluate_fitness is deprecated. Use parallel_evaluate_fitness instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        # Call _evaluate_single_program for consistency
-        _, result = self._evaluate_single_program(program)
-        return program.raw_fitness, program.fitness
 
     def parallel_evaluate_fitness(
         self, programs_to_evaluate: list[Program], n_parallel: int | None = None
