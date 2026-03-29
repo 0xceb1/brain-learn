@@ -66,7 +66,6 @@ class GPLearnSimulator:
     best_program: Program | None
     best_fitness: float
     generation: int
-    # TODO: change set[str] to set[Program] for better hash performance
     evaluated_expressions: set[str]
     hall_of_fame: list[tuple[float, str, AlphaPerf]]  # (fitness, expr, performance)
     fitness_evaluations: int

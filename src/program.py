@@ -122,6 +122,7 @@ class Program:
 
         return self._unit
 
+    # TODO: normalize by mul/div
     def normalize_program(
         self, program: list[Operator | Terminal], random_state: RandomState
     ) -> list[Operator | Terminal]:
