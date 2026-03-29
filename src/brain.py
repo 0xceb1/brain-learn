@@ -151,23 +151,22 @@ def simulate(
                 continue
             else:
                 logger.error(
-                    f'Failed to send simulation. Status code: {simulation_response.status_code}.'
+                    f'Failed to send simulation. Status code: {simulation_response.status_code}. Response: {simulation_response.text}'
                 )
-                logger.error(f'Response: {simulation_response.text}')
                 return None
 
         if simulation_response.status_code == 401:
-            logger.error('Authentication error: Incorrect credentials.')
-            logger.error(f'Response: {simulation_response.text}')
+            logger.error(
+                f'Authentication error: Incorrect credentials. Response: {simulation_response.text}'
+            )
             return None
 
         break
 
     if simulation_response.status_code != 201:
         logger.error(
-            f'Failed to send simulation after {MAX_RETRIES} retries. Status code: {simulation_response.status_code}.'
+            f'Failed to send simulation after {MAX_RETRIES} retries. Status code: {simulation_response.status_code}. Response: {simulation_response.text}'
         )
-        logger.error(f'Response: {simulation_response.text}')
         return None
 
     logger.log(f'Simulation sent successfully: {fast_expr}')
@@ -180,8 +179,9 @@ def simulate(
         simulation_progress = s.get(simulation_progress_url)
 
         if simulation_progress.status_code == 401:
-            logger.error('Authentication error during simulation progress monitoring.')
-            logger.error(f'Response: {simulation_progress.text}')
+            logger.error(
+                f'Authentication error during simulation progress monitoring. Response: {simulation_progress.text}'
+            )
             return None
 
         if simulation_progress.headers.get('Retry-After', 0) == 0:
@@ -215,9 +215,7 @@ def simulate(
         return None
 
 
-def evaluate_fitness(
-    s: requests.Session, logger
-) -> Callable[[str], AlphaPerf | None]:
+def evaluate_fitness(s: requests.Session, logger) -> Callable[[str], AlphaPerf | None]:
     return partial(simulate, s, logger=logger)
 
 

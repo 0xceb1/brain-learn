@@ -333,7 +333,7 @@ class GPLearnSimulator:
                                     )
                                     continue
                             else:
-                                self.logger.log(
+                                self.logger.warning(
                                     'Session check OK, but metric returned None. Retrying.'
                                 )
                         except requests.exceptions.RequestException as e:
@@ -410,7 +410,7 @@ class GPLearnSimulator:
             # Handle evaluation failure
             program.raw_fitness = float('-inf')
             program.fitness = float('-inf')
-            self.logger.warning(f'Evaluation failed for: {program_str[:50]}...')
+            self.logger.error(f'Evaluation failed for: {program_str[:50]}...')
 
         return program_str, result
 
@@ -650,7 +650,7 @@ class GPLearnSimulator:
                     break
 
             # Evaluate the new generation
-            self.logger.log(f'\n--- Generation {gen} ---')
+            self.logger.log(f'--- Generation {gen} ---')
             self.parallel_evaluate_fitness(next_population)
 
             # Update population and best program
